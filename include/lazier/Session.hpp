@@ -5,18 +5,7 @@
 #ifndef LAZIER1_SESSION_HPP
 #define LAZIER1_SESSION_HPP
 
-#include <algorithm>
-
-#include <functional>
-
-#include <map>
-#include <memory>
-
-#include <random>
-
-#include <set>
-
-#include <lazier/xtensorSupport.hpp>
+#include <lazier/lazierCommon.hpp>
 
 namespace lazier {
 
@@ -27,18 +16,26 @@ namespace lazier {
     class Session {
     public:
         friend class Expression<T>;
+
+        /*
+         * Type definitions
+         */
         using ExpPointer = std::shared_ptr<Expression<T>>;
         using FeedMap = std::map<ExpPointer, T>;
 
+        /*
+         * member functions
+         */
+
         const T& run(const ExpPointer& target, const FeedMap& feed_map = {}) {
             feedMap(feed_map);
-
             return eval(target);
         }
 
         const T& eval(const ExpPointer& target) {
-            if(auto it = m_eval.find(target); it != m_eval.end())
+            if(auto it = m_eval.find(target); it != m_eval.end()){
                 return m_eval[target];
+            }
 
             return m_eval[target] = target->eval(*this);
         }
@@ -55,7 +52,6 @@ namespace lazier {
 
             if(E == target) {
                 cache = xt::ones_like(eval(target));
-
                 return cache;
             }
 
@@ -74,6 +70,9 @@ namespace lazier {
         }
 
     protected:
+        /*
+         * protected member variables
+         */
         std::map<ExpPointer, T> m_eval;
         std::map<ExpPointer, std::map<ExpPointer, T>> m_diff;
     };

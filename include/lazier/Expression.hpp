@@ -29,10 +29,17 @@ Exp& operator=(Exp&&) noexcept = delete;
         /*
          * Type definitions
          */
+        // value type
         using TensorType = T;
-        using SharedPtr = std::shared_ptr<Expression<T>>;
-        using WeakPtr = std::weak_ptr<Expression<T>>;
 
+        // smart pointer types & set of them
+        using SharedPtr = std::shared_ptr<Expression<T>>;
+        using SharedPtrSet = std::set<SharedPtr>;
+        using WeakPtr = std::weak_ptr<Expression<T>>;
+        using WeakPtrSet = std::set<WeakPtr, std::owner_less<WeakPtr>>;
+
+        // value-delta-evaluating function
+        using Initializer = std::function<T(Session<T>&)>;
         using Evaluator = std::function<T(Session<T>&)>;
         using Differentiator = std::function<T(Session<T>&, const SharedPtr&)>;
 
@@ -42,8 +49,8 @@ Exp& operator=(Exp&&) noexcept = delete;
 
         Evaluator eval;
         std::map<WeakPtr, Differentiator, std::owner_less<WeakPtr>> diff;
-        std::set<WeakPtr, std::owner_less<WeakPtr>> pre;
-        std::set<WeakPtr, std::owner_less<WeakPtr>> post;
+        WeakPtrSet pre;
+        WeakPtrSet post;
 
         /*
          * member functions
@@ -60,11 +67,13 @@ Exp& operator=(Exp&&) noexcept = delete;
         }
 
         virtual void resetTensor(Session<T>& sess) {
-            if(sess.m_eval.count(getPointer()) != 0) {
-                sess.m_eval.erase(getPointer());
-                for(const auto &ptr : post) {
-                    if(!ptr.expired()) {
-                        ptr.lock()->resetTensor(sess);
+            auto this_ptr = getPointer();
+
+            if(auto it = sess.m_eval.find(this_ptr); it != sess.m_eval.end()) {
+                sess.m_eval.erase(it);
+                for(const auto &post_ptr : post) {
+                    if(auto p = post_ptr.lock()) {
+                        p->resetTensor(sess);
                     }
                 }
             }
@@ -75,31 +84,63 @@ Exp& operator=(Exp&&) noexcept = delete;
         }
 
         virtual void resetDelta(Session<T>& sess) {
+            auto this_ptr = getPointer();
+
             for(auto &[E, mp] : sess.m_diff) {
-                if(mp.count(getPointer()) != 0) {
-                    mp.erase(getPointer());
-                    for(const auto &ptr : pre) {
-                        if(!ptr.expired()) {
-                            ptr.lock()->resetDelta(sess);
+                if(auto it = mp.find(this_ptr); it != mp.end()) {
+                    mp.erase(it);
+                    for(const auto &pre_ptr : pre) {
+                        if(auto p = pre_ptr.lock()) {
+                            p->resetDelta(sess);
                         }
                     }
                 }
             }
+
+        }
+
+        bool isOptimizerTarget() const {
+            return m_isOptimizerTarget;
         }
 
     protected:
-        explicit Expression() : eval(), diff(), pre(), post() {}
+        /*
+         * protected member variables
+         */
+        bool m_isOptimizerTarget;
+
+        /*
+         * protected constructors
+         */
+        explicit Expression() : eval(), diff(), pre(), post(), m_isOptimizerTarget(false) {}
+
+        /*
+         * friends
+         */
 
         template<typename T1, typename ...Types>
-        friend std::shared_ptr<Expression<T1>> make_expression(Types&& ...args);
+        friend typename Expression<T1>::SharedPtr make_expression(Types&& ...args);
+
+        template<typename T1>
+        friend void relate_expression
+        (const typename Expression<T1>::SharedPtrSet& preExp, const typename Expression<T1>::SharedPtrSet& postExp);
     };
 
-    template<typename T>
-    using ExpPointer = std::shared_ptr<Expression<T>>;
-
     template<typename T, typename ...Types>
-    ExpPointer<T> make_expression(Types&& ...args) {
-        return ExpPointer<T>(new Expression<T>(std::forward<Types>(args)...));
+    typename Expression<T>::SharedPtr make_expression(Types&& ...args) {
+        return typename Expression<T>::SharedPtr(new Expression<T>(std::forward<Types>(args)...));
+    }
+
+    template<typename T>
+    void relate_expression
+    (const typename Expression<T>::SharedPtrSet& preExp, const typename Expression<T>::SharedPtrSet& postExp) {
+        for(const auto& ptr : preExp) {
+            ptr->post.insert(postExp.cbegin(), postExp.cend());
+        }
+
+        for(const auto& ptr : postExp) {
+            ptr->pre.insert(preExp.cbegin(), preExp.cend());
+        }
     }
 
 }

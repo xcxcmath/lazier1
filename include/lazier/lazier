@@ -1,4 +1,4 @@
-#include <lazier/xtensorSupport.hpp>
+#include <lazier/lazierCommon.hpp>
 
 #include <lazier/Session.hpp>
 
