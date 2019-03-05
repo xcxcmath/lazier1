@@ -15,13 +15,17 @@ namespace lazier {
     template<typename T>
     class Session {
     public:
-        friend class Expression<T>;
-
         /*
          * Type definitions
          */
         using ExpPointer = std::shared_ptr<Expression<T>>;
         using FeedMap = std::map<ExpPointer, T>;
+
+        /*
+         * member variables
+         */
+        std::map<ExpPointer, T> eval_cache;
+        std::map<ExpPointer, std::map<ExpPointer, T>> diff_cache;
 
         /*
          * member functions
@@ -33,21 +37,21 @@ namespace lazier {
         }
 
         const T& eval(const ExpPointer& target) {
-            if(auto it = m_eval.find(target); it != m_eval.end()){
-                return m_eval[target];
+            if(auto it = eval_cache.find(target); it != eval_cache.end()){
+                return eval_cache[target];
             }
 
-            return m_eval[target] = target->eval(*this);
+            return eval_cache[target] = target->eval(*this);
         }
 
         const T& diff(const ExpPointer& target, const ExpPointer& E) {
-            if(auto out_it = m_diff.find(E); out_it != m_diff.end()) {
+            if(auto out_it = diff_cache.find(E); out_it != diff_cache.end()) {
                 if(auto in_it = out_it->second.find(target); in_it != out_it->second.end()) {
-                    return m_diff[E][target];
+                    return diff_cache[E][target];
                 }
             }
 
-            auto& cache = m_diff[E][target];
+            auto& cache = diff_cache[E][target];
             cache = xt::zeros_like(eval(target));
 
             if(E == target) {
@@ -65,16 +69,9 @@ namespace lazier {
         void feedMap(const FeedMap& feed_map) {
             for(const auto&[ptr, val] : feed_map) {
                 ptr->resetTensor(*this);
-                m_eval[ptr] = val;
+                eval_cache[ptr] = val;
             }
         }
-
-    protected:
-        /*
-         * protected member variables
-         */
-        std::map<ExpPointer, T> m_eval;
-        std::map<ExpPointer, std::map<ExpPointer, T>> m_diff;
     };
 
 }

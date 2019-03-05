@@ -69,8 +69,10 @@ Exp& operator=(Exp&&) noexcept = delete;
         virtual void resetTensor(Session<T>& sess) {
             auto this_ptr = getPointer();
 
-            if(auto it = sess.m_eval.find(this_ptr); it != sess.m_eval.end()) {
-                sess.m_eval.erase(it);
+            if(auto it = sess.eval_cache.find(this_ptr); it != sess.eval_cache.end()) {
+                if(m_isResettableTensor) {
+                    sess.eval_cache.erase(it);
+                }
                 for(const auto &post_ptr : post) {
                     if(auto p = post_ptr.lock()) {
                         p->resetTensor(sess);
@@ -86,7 +88,7 @@ Exp& operator=(Exp&&) noexcept = delete;
         virtual void resetDelta(Session<T>& sess) {
             auto this_ptr = getPointer();
 
-            for(auto &[E, mp] : sess.m_diff) {
+            for(auto &[E, mp] : sess.diff_cache) {
                 if(auto it = mp.find(this_ptr); it != mp.end()) {
                     mp.erase(it);
                     for(const auto &pre_ptr : pre) {
@@ -108,11 +110,14 @@ Exp& operator=(Exp&&) noexcept = delete;
          * protected member variables
          */
         bool m_isOptimizerTarget;
+        bool m_isResettableTensor;
 
         /*
          * protected constructors
          */
-        explicit Expression() : eval(), diff(), pre(), post(), m_isOptimizerTarget(false) {}
+        explicit Expression()
+        : eval(), diff(), pre(), post(),
+        m_isOptimizerTarget(false), m_isResettableTensor(true) {}
 
         /*
          * friends

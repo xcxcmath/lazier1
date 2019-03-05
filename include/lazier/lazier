@@ -3,3 +3,4 @@
 #include <lazier/Session.hpp>
 
 #include <lazier/Expression.hpp>
+#include <lazier/Variable.hpp>

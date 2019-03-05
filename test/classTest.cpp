@@ -45,3 +45,41 @@ TEST(ClassExpression, basics) {
     EXPECT_PRED2(tensorEqual<float>, operand1 * operand2, output);
     EXPECT_PRED2(tensorEqual<float>, operand2, delta_a);
 }
+
+TEST(ClassVariable, basics) {
+    using TF = Tensor<float>;
+
+    TF init = {{-1, -2}, {-3, -4}};
+    auto a = make_variable<TF>(init);
+    auto b = make_expression<TF>();
+    auto c = make_expression<TF>();
+
+    relate_expression<TF>({a, b}, {c});
+
+    Expression<TF>::WeakPtr wa = a, wb = b, wc = c;
+
+    c->eval = [wa, wb](Session<TF>& sess) -> TF {
+        return sess.eval(wa.lock()) * sess.eval(wb.lock());
+    };
+    a->diff[wc] = [wb, wc](Session<TF>& sess, const Expression<TF>::SharedPtr& E) -> TF {
+        return sess.diff(wc.lock(), E) * sess.eval(wb.lock());
+    };
+    b->diff[wc] = [wa, wc](Session<TF>& sess, const Expression<TF>::SharedPtr& E) -> TF {
+        return sess.diff(wc.lock(), E) * sess.eval(wa.lock());
+    };
+
+    Session<TF> sess;
+
+    TF operand2 = {{5, 6}, {7, 8}};
+
+    TF output = sess.run(c, {{b, operand2}});
+    TF delta_a = sess.diff(a, c);
+    EXPECT_PRED2(tensorEqual<float>, sess.eval_cache[a] * operand2, output);
+    EXPECT_PRED2(tensorEqual<float>, operand2, delta_a);
+
+    operand2 = {{0, 0}, {0, 0}};
+    output = sess.run(c, {{b, operand2}});
+    delta_a = sess.diff(a, c);
+    EXPECT_PRED2(tensorEqual<float>, sess.eval_cache[a] * operand2, output);
+    EXPECT_PRED2(tensorEqual<float>, operand2, delta_a);
+}
