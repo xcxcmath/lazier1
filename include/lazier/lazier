@@ -4,3 +4,5 @@
 
 #include <lazier/Expression.hpp>
 #include <lazier/Variable.hpp>
+
+#include <lazier/ops/OperatorCommon.hpp>

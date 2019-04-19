@@ -83,3 +83,5 @@ TEST(ClassVariable, basics) {
     EXPECT_PRED2(tensorEqual<float>, sess.eval_cache[a] * operand2, output);
     EXPECT_PRED2(tensorEqual<float>, operand2, delta_a);
 }
+
+// TODO: OperatorCommon & Placeholder

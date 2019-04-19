@@ -31,6 +31,10 @@ namespace lazier {
          * member functions
          */
 
+        bool isEvalCached(const ExpPointer& target) {
+            return eval_cache.find(target) != eval_cache.end();
+        }
+
         const T& run(const ExpPointer& target, const FeedMap& feed_map = {}) {
             feedMap(feed_map);
             return eval(target);

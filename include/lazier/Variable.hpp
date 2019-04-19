@@ -46,6 +46,12 @@ namespace lazier {
         explicit Variable(Initializer f) : Variable() {
             initializer = std::move(f);
             this->eval = [this](Session<T>& sess) -> T {
+
+                /*
+                 * When this eval function is called,
+                 * the value related to this Variable is guaranteed to be reset.
+                 */
+
                 return initializer(sess);
             };
         }
